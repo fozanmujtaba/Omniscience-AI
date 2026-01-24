@@ -119,13 +119,28 @@ export async function POST(request: NextRequest) {
             },
         });
     } catch (error) {
-        console.error("[Chat] Error:", error);
+        console.error("[Chat] Top-level error:", error);
+
+        // Detailed error logging
+        if (error instanceof Error) {
+            console.error(`[Chat] Error Name: ${error.name}`);
+            console.error(`[Chat] Error Message: ${error.message}`);
+            console.error(`[Chat] Stack Trace: ${error.stack}`);
+        }
 
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        const isQuotaExceeded = errorMessage.includes("429") || errorMessage.includes("Quota exceeded");
 
         return new Response(
-            JSON.stringify({ success: false, message: `Chat failed: ${errorMessage}` }),
-            { status: 500, headers: { "Content-Type": "application/json" } }
+            JSON.stringify({
+                success: false,
+                message: isQuotaExceeded
+                    ? "You've reached the Gemini API daily limit (Free Tier). Please wait for the quota to reset or upgrade your API key."
+                    : `Chat failed: ${errorMessage}`,
+                error: (error as any)?.toString(),
+                code: isQuotaExceeded ? "QUOTA_EXCEEDED" : "UNKNOWN_ERROR"
+            }),
+            { status: isQuotaExceeded ? 429 : 500, headers: { "Content-Type": "application/json" } }
         );
     }
 }

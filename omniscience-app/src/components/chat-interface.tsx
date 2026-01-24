@@ -90,7 +90,11 @@ export function ChatInterface({ sessionId, onFirstMessage }: ChatInterfaceProps)
                 }),
             });
 
-            if (!response.ok) throw new Error("Chat request failed");
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error("[Chat] Request failed:", response.status, errorData);
+                throw new Error(errorData.message || `Chat request failed with status ${response.status}`);
+            }
 
             const reader = response.body?.getReader();
             if (!reader) throw new Error("No response stream");
@@ -134,10 +138,12 @@ export function ChatInterface({ sessionId, onFirstMessage }: ChatInterfaceProps)
             }
         } catch (error) {
             console.error("Chat error:", error);
+            const errorMessage = error instanceof Error ? error.message : "Sorry, an error occurred. Please try again.";
+
             setMessages((prev) =>
                 prev.map((m) =>
                     m.id === assistantId
-                        ? { ...m, content: "Sorry, an error occurred. Please try again." }
+                        ? { ...m, content: `⚠️ **Notification:** ${errorMessage}` }
                         : m
                 )
             );
@@ -181,28 +187,37 @@ export function ChatInterface({ sessionId, onFirstMessage }: ChatInterfaceProps)
                             <p className="text-xs mt-1">Answers will cite specific sources</p>
                         </div>
                     ) : (
-                        <div className="space-y-4 pb-4">
-                            {messages.map((message) => (
+                        <div className="space-y-6 pb-4">
+                            {messages.map((message, idx) => (
                                 <div
                                     key={message.id}
-                                    className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                                    className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-500`}
+                                    style={{ animationDelay: `${idx * 50}ms` }}
                                 >
                                     <div
-                                        className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-md ${message.role === "user"
-                                            ? "bg-violet-600 text-white"
-                                            : "bg-zinc-800/80 text-zinc-100 border border-zinc-700/50"
+                                        className={`max-w-[85%] rounded-2xl px-5 py-4 shadow-xl ${message.role === "user"
+                                            ? "bg-violet-600 text-white shadow-violet-900/10"
+                                            : "glass text-zinc-100 shadow-black/20"
                                             }`}
                                     >
-                                        <div className="text-sm max-w-none">
+                                        <div className="text-sm prose-custom">
                                             <ReactMarkdown
                                                 components={{
-                                                    p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed break-words">{children}</p>,
-                                                    ul: ({ children }) => <ul className="list-disc ml-4 mb-2">{children}</ul>,
-                                                    ol: ({ children }) => <ol className="list-decimal ml-4 mb-2">{children}</ol>,
-                                                    li: ({ children }) => <li className="mb-1">{children}</li>,
-                                                    h3: ({ children }) => <h3 className="text-base font-bold mb-2 text-violet-400">{children}</h3>,
-                                                    strong: ({ children }) => <strong className="font-bold text-violet-300">{children}</strong>,
-                                                    code: ({ children }) => <code className="bg-zinc-950 px-1 py-0.5 rounded text-xs font-mono text-cyan-400">{children}</code>,
+                                                    p: ({ children }) => <p className="mb-3 last:mb-0 leading-relaxed break-words text-zinc-200">{children}</p>,
+                                                    ul: ({ children }) => <ul className="list-disc ml-5 mb-3 space-y-1 text-zinc-300">{children}</ul>,
+                                                    ol: ({ children }) => <ol className="list-decimal ml-5 mb-3 space-y-1 text-zinc-300">{children}</ol>,
+                                                    li: ({ children }) => <li className="pl-1">{children}</li>,
+                                                    h3: ({ children }) => (
+                                                        <h3 className="text-base font-bold mb-3 mt-1 text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-cyan-400">
+                                                            {children}
+                                                        </h3>
+                                                    ),
+                                                    strong: ({ children }) => <strong className="font-semibold text-white tracking-wide">{children}</strong>,
+                                                    code: ({ children }) => (
+                                                        <code className="bg-zinc-950/50 border border-zinc-800/50 px-1.5 py-0.5 rounded text-[13px] font-mono text-cyan-300">
+                                                            {children}
+                                                        </code>
+                                                    ),
                                                 }}
                                             >
                                                 {message.content}
@@ -210,14 +225,19 @@ export function ChatInterface({ sessionId, onFirstMessage }: ChatInterfaceProps)
                                         </div>
 
                                         {message.sources && message.sources.length > 0 && (
-                                            <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-zinc-700/50">
-                                                {message.sources.map((source, idx) => (
+                                            <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/5">
+                                                {message.sources.map((source, sIdx) => (
                                                     <button
-                                                        key={idx}
+                                                        key={sIdx}
                                                         onClick={() => setSelectedSource(source)}
-                                                        className="flex items-center gap-1.5 px-2 py-1 rounded bg-zinc-950/50 border border-zinc-700 hover:border-violet-500 hover:bg-zinc-900 transition-all text-[10px] text-zinc-400 font-medium"
+                                                        className="group flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/5 border border-white/5 hover:border-violet-500/50 hover:bg-violet-500/10 transition-all duration-300"
                                                     >
-                                                        📄 {source.filename} (#{source.chunkIndex})
+                                                        <span className="text-[10px] text-zinc-500 group-hover:text-violet-400 transition-colors uppercase tracking-widest font-bold">
+                                                            Source {source.chunkIndex}
+                                                        </span>
+                                                        <span className="text-[10px] text-zinc-400 truncate max-w-[100px]">
+                                                            {source.filename}
+                                                        </span>
                                                     </button>
                                                 ))}
                                             </div>
@@ -226,14 +246,13 @@ export function ChatInterface({ sessionId, onFirstMessage }: ChatInterfaceProps)
                                 </div>
                             ))}
 
-                            {isLoading && messages[messages.length - 1]?.content === "" && (
-                                <div className="flex justify-start">
-                                    <div className="bg-zinc-800/80 rounded-2xl px-4 py-3 border border-zinc-700/50">
-                                        <div className="flex gap-1.5">
-                                            <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                                            <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                                            <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                                        </div>
+                            {isLoading && messages[messages.length - 1]?.role === "user" && (
+                                <div className="flex justify-start animate-in fade-in slide-in-from-left-2 duration-500">
+                                    <div className="glass px-5 py-3 rounded-2xl flex gap-1.5 items-center shadow-sm">
+                                        <div className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(167,139,250,0.5)]" />
+                                        <div className="w-1.5 h-1.5 bg-violet-400/60 rounded-full animate-pulse delay-75" />
+                                        <div className="w-1.5 h-1.5 bg-violet-400/30 rounded-full animate-pulse delay-150" />
+                                        <span className="text-[10px] text-zinc-500 font-medium ml-2 uppercase tracking-widest">Thought in progress</span>
                                     </div>
                                 </div>
                             )}
