@@ -82,7 +82,7 @@ export default function Home() {
   if (!isLoaded) return <div className="min-h-screen bg-zinc-950" />;
 
   return (
-    <div className="flex min-h-screen bg-zinc-950 text-white font-[family-name:var(--font-geist-sans)]">
+    <div className="bg-zinc-950 text-white font-[family-name:var(--font-geist-sans)]">
       <Sidebar
         currentSessionId={sessionId}
         sessions={sessions}
@@ -91,14 +91,14 @@ export default function Home() {
         onDeleteSession={handleDeleteSession}
       />
 
-      <div className="flex-1 ml-72">
+      <main className="ml-72 min-h-screen">
         {/* Animated gradient background */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-radial from-violet-900/10 via-transparent to-transparent animate-pulse" />
           <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-radial from-cyan-900/10 via-transparent to-transparent animate-pulse" style={{ animationDelay: "1s" }} />
         </div>
 
-        <div className="relative z-10 p-8 max-w-6xl mx-auto">
+        <div className="relative z-10 p-8 max-w-6xl mx-auto pb-24">
           {/* Header Info */}
           <div className="flex items-center justify-between mb-12">
             <div>
@@ -108,7 +108,7 @@ export default function Home() {
             <div className="flex items-center gap-6">
               <div className="text-right">
                 <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Model</p>
-                <p className="text-sm text-zinc-300">Gemini 1.5 Flash</p>
+                <p className="text-sm text-zinc-300">Gemini-flash-latest</p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Storage</p>
@@ -154,7 +154,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

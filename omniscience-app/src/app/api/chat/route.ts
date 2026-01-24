@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
                         sources: chunks.map((c) => ({
                             filename: c.metadata.filename,
                             chunkIndex: c.metadata.chunkIndex,
+                            text: c.text, // Include text for instant preview
                         })),
                     });
                     controller.enqueue(encoder.encode(`data: ${sourcesData}\n\n`));
