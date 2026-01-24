@@ -1,115 +1,159 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { v4 as uuidv4 } from "uuid";
 import { PDFUploader } from "@/components/pdf-uploader";
 import { ChatInterface } from "@/components/chat-interface";
+import { Sidebar } from "@/components/sidebar";
+
+interface Session {
+  id: string;
+  title: string;
+  createdAt: string;
+  files: string[];
+}
 
 export default function Home() {
+  const [sessionId, setSessionId] = useState<string>("");
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    // Initialize sessions and current session
+    const savedSessions = localStorage.getItem("omniscience_sessions");
+    const initialSessions = savedSessions ? JSON.parse(savedSessions) : [];
+    setSessions(initialSessions);
+
+    const lastSessionId = localStorage.getItem("omniscience_last_session");
+    if (lastSessionId && initialSessions.find((s: Session) => s.id === lastSessionId)) {
+      setSessionId(lastSessionId);
+    } else if (initialSessions.length > 0) {
+      setSessionId(initialSessions[0].id);
+    } else {
+      handleNewSession();
+    }
+    setIsLoaded(true);
+  }, []);
+
+  const handleNewSession = () => {
+    const newId = uuidv4();
+    const newSession = {
+      id: newId,
+      title: "New Conversation",
+      createdAt: new Date().toISOString(),
+      files: []
+    };
+    const updated = [newSession, ...sessions];
+    setSessions(updated);
+    setSessionId(newId);
+    localStorage.setItem("omniscience_sessions", JSON.stringify(updated));
+    localStorage.setItem("omniscience_last_session", newId);
+  };
+
+  const handleSessionChange = (id: string) => {
+    setSessionId(id);
+    localStorage.setItem("omniscience_last_session", id);
+  };
+
+  const handleDeleteSession = (id: string) => {
+    const updated = sessions.filter(s => s.id !== id);
+    setSessions(updated);
+    localStorage.setItem("omniscience_sessions", JSON.stringify(updated));
+    if (id === sessionId) {
+      if (updated.length > 0) {
+        setSessionId(updated[0].id);
+      } else {
+        handleNewSession();
+      }
+    }
+  };
+
+  const handleFirstMessage = (message: string) => {
+    const updated = sessions.map(s => {
+      if (s.id === sessionId && (s.title === "New Conversation" || !s.title)) {
+        return { ...s, title: message.length > 30 ? message.substring(0, 30) + "..." : message };
+      }
+      return s;
+    });
+    setSessions(updated);
+    localStorage.setItem("omniscience_sessions", JSON.stringify(updated));
+  };
+
+  if (!isLoaded) return <div className="min-h-screen bg-zinc-950" />;
+
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-      {/* Animated gradient background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-radial from-violet-900/20 via-transparent to-transparent animate-pulse" />
-        <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-radial from-cyan-900/20 via-transparent to-transparent animate-pulse" style={{ animationDelay: "1s" }} />
-      </div>
+    <div className="flex min-h-screen bg-zinc-950 text-white font-[family-name:var(--font-geist-sans)]">
+      <Sidebar
+        currentSessionId={sessionId}
+        sessions={sessions}
+        onSessionChange={handleSessionChange}
+        onNewSession={handleNewSession}
+        onDeleteSession={handleDeleteSession}
+      />
 
-      {/* Content */}
-      <div className="relative z-10">
-        {/* Header */}
-        <header className="border-b border-zinc-800/50 backdrop-blur-xl bg-zinc-950/50 sticky top-0 z-20">
-          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
+      <div className="flex-1 ml-72">
+        {/* Animated gradient background */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-radial from-violet-900/10 via-transparent to-transparent animate-pulse" />
+          <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-radial from-cyan-900/10 via-transparent to-transparent animate-pulse" style={{ animationDelay: "1s" }} />
+        </div>
+
+        <div className="relative z-10 p-8 max-w-6xl mx-auto">
+          {/* Header Info */}
+          <div className="flex items-center justify-between mb-12">
+            <div>
+              <h2 className="text-2xl font-bold text-white">Knowledge Workspace</h2>
+              <p className="text-zinc-500 text-sm mt-1">Session: <span className="font-mono text-zinc-400">{sessionId.split('-')[0]}...</span></p>
+            </div>
+            <div className="flex items-center gap-6">
+              <div className="text-right">
+                <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Model</p>
+                <p className="text-sm text-zinc-300">Gemini 1.5 Flash</p>
               </div>
-              <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">
-                  Omniscience
-                </h1>
-                <p className="text-xs text-zinc-500">Intelligent RAG Knowledge Base</p>
+              <div className="text-right">
+                <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Storage</p>
+                <p className="text-sm text-zinc-300">Pinecone Vector DB</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-zinc-500">Powered by</span>
-              <span className="text-xs font-medium text-zinc-300">Gemini 1.5 Pro</span>
-            </div>
-          </div>
-        </header>
-
-        {/* Hero Section */}
-        <section className="max-w-7xl mx-auto px-6 py-16 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800/50 border border-zinc-700 mb-6">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span className="text-sm text-zinc-300">Zero hallucinations • 100% grounded in your documents</span>
           </div>
 
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">
-            <span className="bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
-              Your Second Brain,
-            </span>
-            <br />
-            <span className="bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent">
-              Powered by AI
-            </span>
-          </h2>
-
-          <p className="text-zinc-400 max-w-2xl mx-auto mb-12">
-            Upload your PDFs and ask questions. Every answer is grounded in your documents
-            with precise source citations. No hallucinations, just facts.
-          </p>
-        </section>
-
-        {/* Main Content */}
-        <main className="max-w-7xl mx-auto px-6 pb-16">
-          <div className="grid lg:grid-cols-2 gap-8">
-            {/* Left: Upload */}
-            <div className="space-y-6">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
-                  <span className="text-violet-400 font-bold text-sm">1</span>
+          <div className="grid lg:grid-cols-12 gap-8 items-start">
+            {/* Left Column: Upload & Context */}
+            <div className="lg:col-span-5 space-y-8">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-md bg-violet-500/20 flex items-center justify-center text-violet-400 text-xs font-bold">1</div>
+                  <h3 className="font-semibold text-zinc-200">Session Knowledge</h3>
                 </div>
-                <h3 className="text-lg font-semibold">Upload Documents</h3>
+                <PDFUploader sessionId={sessionId} />
               </div>
-              <PDFUploader />
 
-              {/* Features */}
-              <div className="grid grid-cols-2 gap-4 mt-8">
-                {[
-                  { icon: "🔒", title: "Private", desc: "Your data stays yours" },
-                  { icon: "⚡", title: "Fast", desc: "Semantic search in ms" },
-                  { icon: "📚", title: "50+ PDFs", desc: "Scale your knowledge" },
-                  { icon: "🎯", title: "Accurate", desc: "Cited sources always" },
-                ].map((feature) => (
-                  <div
-                    key={feature.title}
-                    className="p-4 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 transition-colors"
-                  >
-                    <span className="text-2xl">{feature.icon}</span>
-                    <h4 className="font-medium mt-2">{feature.title}</h4>
-                    <p className="text-xs text-zinc-500">{feature.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Right: Chat */}
-            <div className="space-y-6">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
-                  <span className="text-cyan-400 font-bold text-sm">2</span>
+              <div className="p-6 rounded-2xl bg-zinc-900/40 border border-zinc-800 backdrop-blur-sm">
+                <h4 className="text-sm font-semibold text-zinc-300 mb-4">Isolated Retrieval</h4>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  This session uses a dedicated namespace. Questions asked here will only search documents uploaded above.
+                  Switching sessions provides a clean slate.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2 text-[10px] uppercase font-bold text-zinc-600">
+                  <span className="px-2 py-1 rounded bg-zinc-800 border border-zinc-700">AES-256</span>
+                  <span className="px-2 py-1 rounded bg-zinc-800 border border-zinc-700">PII Redaction</span>
+                  <span className="px-2 py-1 rounded bg-zinc-800 border border-zinc-700">Citations</span>
                 </div>
-                <h3 className="text-lg font-semibold">Ask Questions</h3>
               </div>
-              <ChatInterface />
+            </div>
+
+            {/* Right Column: Chat Interface */}
+            <div className="lg:col-span-7">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-md bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-xs font-bold">2</div>
+                  <h3 className="font-semibold text-zinc-200">Intelligent Analysis</h3>
+                </div>
+                <ChatInterface sessionId={sessionId} onFirstMessage={handleFirstMessage} />
+              </div>
             </div>
           </div>
-        </main>
-
-        {/* Footer */}
-        <footer className="border-t border-zinc-800/50 py-8">
-          <div className="max-w-7xl mx-auto px-6 text-center text-zinc-500 text-sm">
-            Built with Next.js 15 • Gemini 1.5 Pro • Pinecone
-          </div>
-        </footer>
+        </div>
       </div>
     </div>
   );

@@ -9,6 +9,8 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
 
 interface ChatRequest {
     message: string;
+    sessionId?: string;
+    history?: Array<{ role: "user" | "model"; parts: { text: string }[] }>;
     topK?: number;
 }
 
@@ -16,14 +18,15 @@ interface ChatRequest {
  * POST /api/chat
  * 
  * RAG chat endpoint:
- * 1. Retrieve relevant document chunks
- * 2. Build prompt with strict RAG system instructions
- * 3. Stream response from Gemini 1.5 Pro
+ * 1. Retrieve relevant document chunks from the session's namespace
+ * 2. Build system instruction with context
+ * 3. Start a chat session with Gemini for conversational memory
+ * 4. Stream response
  */
 export async function POST(request: NextRequest) {
     try {
         const body: ChatRequest = await request.json();
-        const { message, topK = 5 } = body;
+        const { message, sessionId, history = [], topK = 5 } = body;
 
         if (!message || message.trim().length === 0) {
             return new Response(
@@ -32,10 +35,10 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Step 1: Retrieve relevant context
-        console.log(`[Chat] Retrieving context for: "${message}"`);
+        // Step 1: Retrieve relevant context (filtered by session namespace)
+        console.log(`[Chat] Retrieving context for: "${message}" in namespace: ${sessionId || "default"}`);
         const queryVector = await generateEmbedding(message);
-        const queryResult = await queryVectors(queryVector, topK);
+        const queryResult = await queryVectors(queryVector, topK, undefined, sessionId);
 
         const chunks = (queryResult.matches || []).map((match) => ({
             text: (match.metadata?.text as string) || "",
@@ -47,15 +50,26 @@ export async function POST(request: NextRequest) {
 
         console.log(`[Chat] Retrieved ${chunks.length} context chunks`);
 
-        // Step 2: Build the prompt
+        // Step 2: Build the system instruction
         const context = formatContext(chunks);
-        const prompt = buildPrompt(context, message);
+        const systemInstruction = buildPrompt(context, message);
 
-        // Step 3: Generate response with Gemini 1.5 Pro
-        console.log(`[Chat] Generating response with Gemini 1.5 Flash...`);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        // Step 3: Generate response with Gemini Pro
+        console.log(`[Chat] Generating response with Gemini Flash...`);
+        const model = genAI.getGenerativeModel({
+            model: "gemini-flash-latest",
+            systemInstruction: {
+                role: "system",
+                parts: [{ text: systemInstruction }]
+            }
+        });
 
-        const result = await model.generateContentStream(prompt);
+        // Start chat with history
+        const chat = model.startChat({
+            history: history.length > 0 ? history : [],
+        });
+
+        const result = await chat.sendMessageStream(message);
 
         // Step 4: Stream the response
         const encoder = new TextEncoder();

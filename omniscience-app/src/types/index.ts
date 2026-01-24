@@ -43,3 +43,8 @@ export interface SearchResult {
   text: string;
   metadata: ChunkMetadata;
 }
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}

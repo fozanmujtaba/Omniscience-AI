@@ -1,19 +1,26 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 interface PDFUploaderProps {
+    sessionId: string;
     onUploadComplete?: (filename: string, stats: { chunks: number; vectors: number }) => void;
 }
 
-export function PDFUploader({ onUploadComplete }: PDFUploaderProps) {
+export function PDFUploader({ sessionId, onUploadComplete }: PDFUploaderProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState<string>("");
     const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+
+    // Reset files when switching sessions
+    useEffect(() => {
+        setUploadedFiles([]);
+        setUploadProgress("");
+    }, [sessionId]);
 
     const handleDragOver = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -43,6 +50,28 @@ export function PDFUploader({ onUploadComplete }: PDFUploaderProps) {
         }
     }, []);
 
+    const deleteFile = async (filename: string) => {
+        try {
+            setUploadProgress(`Deleting ${filename}...`);
+            const response = await fetch("/api/documents/delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filename, sessionId }),
+            });
+
+            if (response.ok) {
+                setUploadedFiles((prev) => prev.filter((f) => f !== filename));
+                setUploadProgress(`✓ Removed ${filename}`);
+            } else {
+                setUploadProgress(`✗ Failed to delete ${filename}`);
+            }
+        } catch (error) {
+            console.error("Delete error:", error);
+            setUploadProgress(`✗ Error deleting ${filename}`);
+        }
+        setTimeout(() => setUploadProgress(""), 3000);
+    };
+
     const uploadFiles = async (files: File[]) => {
         setIsUploading(true);
 
@@ -52,6 +81,7 @@ export function PDFUploader({ onUploadComplete }: PDFUploaderProps) {
 
                 const formData = new FormData();
                 formData.append("file", file);
+                formData.append("sessionId", sessionId);
 
                 const response = await fetch("/api/ingest", {
                     method: "POST",
@@ -83,8 +113,8 @@ export function PDFUploader({ onUploadComplete }: PDFUploaderProps) {
     return (
         <Card
             className={`relative overflow-hidden border-2 border-dashed p-8 transition-all duration-300 ${isDragging
-                    ? "border-primary bg-primary/5 scale-[1.02]"
-                    : "border-zinc-700 hover:border-zinc-500"
+                ? "border-primary bg-primary/5 scale-[1.02]"
+                : "border-zinc-700 hover:border-zinc-500"
                 }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -145,9 +175,18 @@ export function PDFUploader({ onUploadComplete }: PDFUploaderProps) {
 
                 {uploadedFiles.length > 0 && (
                     <div className="flex flex-wrap gap-2 justify-center mt-4">
-                        {uploadedFiles.map((file, idx) => (
-                            <Badge key={idx} variant="secondary" className="text-xs">
-                                {file}
+                        {uploadedFiles.map((filename, idx) => (
+                            <Badge key={idx} variant="secondary" className="group flex items-center gap-1.5 px-3 py-1 bg-zinc-800 text-zinc-300 border-zinc-700 hover:border-zinc-500 transition-colors">
+                                📄 {filename}
+                                <button
+                                    onClick={() => deleteFile(filename)}
+                                    className="ml-1 text-zinc-500 hover:text-red-400 transition-colors"
+                                    title="Delete document"
+                                >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
                             </Badge>
                         ))}
                     </div>

@@ -14,11 +14,33 @@ interface Message {
     sources?: Array<{ filename: string; chunkIndex: number }>;
 }
 
-export function ChatInterface() {
+interface ChatInterfaceProps {
+    sessionId: string;
+    onFirstMessage?: (message: string) => void;
+}
+
+export function ChatInterface({ sessionId, onFirstMessage }: ChatInterfaceProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Load session messages from local storage
+    useEffect(() => {
+        const saved = localStorage.getItem(`chat_${sessionId}`);
+        if (saved) {
+            setMessages(JSON.parse(saved));
+        } else {
+            setMessages([]);
+        }
+    }, [sessionId]);
+
+    // Save messages when they change
+    useEffect(() => {
+        if (messages.length > 0) {
+            localStorage.setItem(`chat_${sessionId}`, JSON.stringify(messages));
+        }
+    }, [messages, sessionId]);
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -29,27 +51,41 @@ export function ChatInterface() {
     const sendMessage = async () => {
         if (!input.trim() || isLoading) return;
 
+        // If this is the first message, notify parent to set session title
+        if (messages.length === 0 && onFirstMessage) {
+            onFirstMessage(input.trim());
+        }
+
         const userMessage: Message = {
             id: Date.now().toString(),
             role: "user",
             content: input.trim(),
         };
 
-        setMessages((prev) => [...prev, userMessage]);
+        const newMessages = [...messages, userMessage];
+        setMessages(newMessages);
         setInput("");
         setIsLoading(true);
 
         const assistantId = (Date.now() + 1).toString();
-        setMessages((prev) => [
-            ...prev,
-            { id: assistantId, role: "assistant", content: "", sources: [] },
-        ]);
+        const placeholderAssistantMessage: Message = { id: assistantId, role: "assistant", content: "", sources: [] };
+        setMessages([...newMessages, placeholderAssistantMessage]);
 
         try {
+            // Format history for Gemini (max last 10 messages for context)
+            const chatHistory = newMessages.slice(-10).map((m) => ({
+                role: m.role === "user" ? ("user" as const) : ("model" as const),
+                parts: [{ text: m.content }],
+            }));
+
             const response = await fetch("/api/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: userMessage.content }),
+                body: JSON.stringify({
+                    message: userMessage.content,
+                    sessionId: sessionId,
+                    history: chatHistory
+                }),
             });
 
             if (!response.ok) throw new Error("Chat request failed");
@@ -145,8 +181,8 @@ export function ChatInterface() {
                             >
                                 <div
                                     className={`max-w-[80%] rounded-2xl px-4 py-3 ${message.role === "user"
-                                            ? "bg-violet-600 text-white"
-                                            : "bg-zinc-800 text-zinc-100"
+                                        ? "bg-violet-600 text-white"
+                                        : "bg-zinc-800 text-zinc-100"
                                         }`}
                                 >
                                     <p className="text-sm whitespace-pre-wrap">{message.content}</p>

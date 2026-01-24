@@ -16,9 +16,10 @@ import type { IngestResponse } from "@/types";
  */
 export async function POST(request: NextRequest) {
     try {
-        // Get the form data with the PDF file
+        // Get the form data with the PDF file and session ID
         const formData = await request.formData();
         const file = formData.get("file") as File | null;
+        const sessionId = formData.get("sessionId") as string | undefined;
 
         if (!file) {
             return NextResponse.json(
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(arrayBuffer);
 
         // Step 1: Parse PDF
-        console.log(`[Ingest] Parsing PDF: ${file.name}`);
+        console.log(`[Ingest] Parsing PDF: ${file.name} (Session: ${sessionId || "global"})`);
         const document = await parsePDF(buffer, file.name);
         console.log(`[Ingest] Extracted ${document.text.length} characters from ${document.pageCount} pages`);
 
@@ -54,9 +55,9 @@ export async function POST(request: NextRequest) {
         const embeddings = await generateEmbeddings(chunks);
         console.log(`[Ingest] Generated ${embeddings.length} embeddings`);
 
-        // Step 4: Upsert to Pinecone
-        console.log(`[Ingest] Upserting to Pinecone...`);
-        const upsertedCount = await upsertVectors(embeddings);
+        // Step 4: Upsert to Pinecone (using sessionId as namespace)
+        console.log(`[Ingest] Upserting to Pinecone namespace: ${sessionId || "default"}...`);
+        const upsertedCount = await upsertVectors(embeddings, sessionId);
         console.log(`[Ingest] Upserted ${upsertedCount} vectors`);
 
         const response: IngestResponse = {
