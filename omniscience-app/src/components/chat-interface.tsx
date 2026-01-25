@@ -7,6 +7,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { SourcePreviewModal } from "./source-preview-modal";
+import { VoiceInput } from "./voice-input";
+import { SuggestedQuestions } from "./suggested-questions";
 import { downloadMarkdown, downloadJSON } from "@/lib/export-chat";
 
 interface Message {
@@ -440,13 +442,29 @@ export function ChatInterface({ sessionId, onFirstMessage }: ChatInterfaceProps)
 
                 {/* Input */}
                 <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
-                    <div className="flex gap-2">
+                    {/* Suggested Questions */}
+                    {messages.length > 0 && messages[messages.length - 1]?.role === "assistant" && !isLoading && (
+                        <SuggestedQuestions
+                            lastResponse={messages[messages.length - 1]?.content || ""}
+                            lastQuestion={lastUserMessage}
+                            onSelectQuestion={(question) => {
+                                setInput(question);
+                            }}
+                            visible={true}
+                        />
+                    )}
+
+                    <div className={`flex gap-2 ${messages.length > 0 && messages[messages.length - 1]?.role === "assistant" && !isLoading ? "mt-4" : ""}`}>
                         <Textarea
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={handleKeyDown}
                             placeholder="Ask a question about your documents..."
                             className="min-h-[44px] max-h-32 resize-none bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+                            disabled={isLoading}
+                        />
+                        <VoiceInput
+                            onTranscript={(text) => setInput(prev => prev + (prev ? " " : "") + text)}
                             disabled={isLoading}
                         />
                         <Button
@@ -460,7 +478,7 @@ export function ChatInterface({ sessionId, onFirstMessage }: ChatInterfaceProps)
                         </Button>
                     </div>
                     <p className="text-[10px] text-zinc-500 dark:text-zinc-600 mt-2 text-center">
-                        Press <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">Enter</kbd> to send, <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">Shift + Enter</kbd> for new line
+                        Press <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">Enter</kbd> to send • <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">🎤</kbd> for voice
                     </p>
                 </div>
             </Card>

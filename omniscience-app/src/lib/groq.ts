@@ -77,4 +77,26 @@ export function isGroqConfigured(): boolean {
     return !!process.env.GROQ_API_KEY;
 }
 
+/**
+ * Simple chat helper for prompts (returns text directly)
+ */
+export async function chatWithGroq(
+    prompt: string,
+    history: GroqChatMessage[] = [],
+    options: { model?: string; temperature?: number } = {}
+): Promise<{ text: string }> {
+    const messages: GroqChatMessage[] = [
+        ...history,
+        { role: "user", content: prompt },
+    ];
+
+    const text = await groqChat({
+        model: options.model || DEFAULT_MODEL,
+        messages,
+        temperature: options.temperature ?? 0.7,
+    });
+
+    return { text };
+}
+
 export { groq };
