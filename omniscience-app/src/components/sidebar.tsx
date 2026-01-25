@@ -82,7 +82,8 @@ export function Sidebar({
                                 </div>
                                 <button
                                     onClick={(e) => deleteSession(e, session.id)}
-                                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 hover:text-red-500 dark:hover:text-red-400 rounded-md transition-all"
+                                    className="p-1.5 text-zinc-400 dark:text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-red-500 dark:hover:text-red-400 rounded-md transition-all"
+                                    title="Delete conversation"
                                 >
                                     <Trash2 className="w-3.5 h-3.5" />
                                 </button>
