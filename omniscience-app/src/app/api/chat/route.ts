@@ -3,8 +3,9 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { generateEmbedding } from "@/lib/embeddings";
 import { queryVectors } from "@/lib/pinecone";
 import { formatContext, buildPrompt } from "@/lib/prompts";
+import { streamGroqChat, isGroqConfigured, GroqChatMessage, DEFAULT_MODEL } from "@/lib/groq";
 
-// Initialize Gemini for chat
+// Initialize Gemini for chat (fallback)
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
 
 interface ChatRequest {
@@ -15,13 +16,89 @@ interface ChatRequest {
 }
 
 /**
+ * Convert Gemini history format to Groq format
+ */
+function convertHistoryToGroq(
+    history: Array<{ role: "user" | "model"; parts: { text: string }[] }>
+): GroqChatMessage[] {
+    return history.map((msg) => ({
+        role: msg.role === "model" ? "assistant" : "user",
+        content: msg.parts.map((p) => p.text).join(""),
+    }));
+}
+
+/**
+ * Stream response using Groq (primary)
+ */
+async function streamWithGroq(
+    systemInstruction: string,
+    message: string,
+    history: Array<{ role: "user" | "model"; parts: { text: string }[] }>,
+    controller: ReadableStreamDefaultController<Uint8Array>,
+    encoder: TextEncoder
+) {
+    const messages: GroqChatMessage[] = [
+        { role: "system", content: systemInstruction },
+        ...convertHistoryToGroq(history),
+        { role: "user", content: message },
+    ];
+
+    const stream = await streamGroqChat({
+        model: DEFAULT_MODEL,
+        messages,
+        temperature: 0.7,
+        maxTokens: 2048,
+    });
+
+    for await (const chunk of stream) {
+        const text = chunk.choices[0]?.delta?.content || "";
+        if (text) {
+            const data = JSON.stringify({ type: "text", content: text });
+            controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+        }
+    }
+}
+
+/**
+ * Stream response using Gemini (fallback)
+ */
+async function streamWithGemini(
+    systemInstruction: string,
+    message: string,
+    history: Array<{ role: "user" | "model"; parts: { text: string }[] }>,
+    controller: ReadableStreamDefaultController<Uint8Array>,
+    encoder: TextEncoder
+) {
+    const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash",
+        systemInstruction: {
+            role: "system",
+            parts: [{ text: systemInstruction }],
+        },
+    });
+
+    const chat = model.startChat({
+        history: history.length > 0 ? history : [],
+    });
+
+    const result = await chat.sendMessageStream(message);
+
+    for await (const chunk of result.stream) {
+        const text = chunk.text();
+        if (text) {
+            const data = JSON.stringify({ type: "text", content: text });
+            controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+        }
+    }
+}
+
+/**
  * POST /api/chat
- * 
+ *
  * RAG chat endpoint:
  * 1. Retrieve relevant document chunks from the session's namespace
  * 2. Build system instruction with context
- * 3. Start a chat session with Gemini for conversational memory
- * 4. Stream response
+ * 3. Stream response using Groq (primary) or Gemini (fallback)
  */
 export async function POST(request: NextRequest) {
     try {
@@ -54,24 +131,11 @@ export async function POST(request: NextRequest) {
         const context = formatContext(chunks);
         const systemInstruction = buildPrompt(context, message);
 
-        // Step 3: Generate response with Gemini Pro
-        console.log(`[Chat] Generating response with Gemini Flash...`);
-        const model = genAI.getGenerativeModel({
-            model: "gemini-flash-latest",
-            systemInstruction: {
-                role: "system",
-                parts: [{ text: systemInstruction }]
-            }
-        });
+        // Determine which provider to use
+        const useGroq = isGroqConfigured();
+        console.log(`[Chat] Using ${useGroq ? "Groq (Llama 3.1 70B)" : "Gemini Flash"} for response generation`);
 
-        // Start chat with history
-        const chat = model.startChat({
-            history: history.length > 0 ? history : [],
-        });
-
-        const result = await chat.sendMessageStream(message);
-
-        // Step 4: Stream the response
+        // Step 3: Stream the response
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
             async start(controller) {
@@ -82,18 +146,37 @@ export async function POST(request: NextRequest) {
                         sources: chunks.map((c) => ({
                             filename: c.metadata.filename,
                             chunkIndex: c.metadata.chunkIndex,
-                            text: c.text, // Include text for instant preview
+                            text: c.text,
                         })),
                     });
                     controller.enqueue(encoder.encode(`data: ${sourcesData}\n\n`));
 
-                    // Stream text chunks
-                    for await (const chunk of result.stream) {
-                        const text = chunk.text();
-                        if (text) {
-                            const data = JSON.stringify({ type: "text", content: text });
-                            controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+                    // Send provider info
+                    const providerData = JSON.stringify({
+                        type: "provider",
+                        provider: useGroq ? "groq" : "gemini",
+                        model: useGroq ? DEFAULT_MODEL : "gemini-2.0-flash",
+                    });
+                    controller.enqueue(encoder.encode(`data: ${providerData}\n\n`));
+
+                    // Try Groq first, fall back to Gemini
+                    if (useGroq) {
+                        try {
+                            await streamWithGroq(systemInstruction, message, history, controller, encoder);
+                        } catch (groqError) {
+                            console.error("[Chat] Groq error, falling back to Gemini:", groqError);
+
+                            // Notify client about fallback
+                            const fallbackData = JSON.stringify({
+                                type: "fallback",
+                                message: "Switching to Gemini...",
+                            });
+                            controller.enqueue(encoder.encode(`data: ${fallbackData}\n\n`));
+
+                            await streamWithGemini(systemInstruction, message, history, controller, encoder);
                         }
+                    } else {
+                        await streamWithGemini(systemInstruction, message, history, controller, encoder);
                     }
 
                     // Send done signal
@@ -135,10 +218,10 @@ export async function POST(request: NextRequest) {
             JSON.stringify({
                 success: false,
                 message: isQuotaExceeded
-                    ? "You've reached the Gemini API daily limit (Free Tier). Please wait for the quota to reset or upgrade your API key."
+                    ? "API rate limit reached. Please wait a moment and try again."
                     : `Chat failed: ${errorMessage}`,
-                error: (error as any)?.toString(),
-                code: isQuotaExceeded ? "QUOTA_EXCEEDED" : "UNKNOWN_ERROR"
+                error: (error as Error)?.toString(),
+                code: isQuotaExceeded ? "QUOTA_EXCEEDED" : "UNKNOWN_ERROR",
             }),
             { status: isQuotaExceeded ? 429 : 500, headers: { "Content-Type": "application/json" } }
         );

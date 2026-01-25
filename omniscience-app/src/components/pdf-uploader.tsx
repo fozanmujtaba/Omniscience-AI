@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import toast from "react-hot-toast";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -62,12 +63,15 @@ export function PDFUploader({ sessionId, onUploadComplete }: PDFUploaderProps) {
             if (response.ok) {
                 setUploadedFiles((prev) => prev.filter((f) => f !== filename));
                 setUploadProgress(`✓ Removed ${filename}`);
+                toast.success(`Removed ${filename}`);
             } else {
                 setUploadProgress(`✗ Failed to delete ${filename}`);
+                toast.error(`Failed to delete ${filename}`);
             }
         } catch (error) {
             console.error("Delete error:", error);
             setUploadProgress(`✗ Error deleting ${filename}`);
+            toast.error(`Error deleting ${filename}`);
         }
         setTimeout(() => setUploadProgress(""), 3000);
     };
@@ -93,16 +97,19 @@ export function PDFUploader({ sessionId, onUploadComplete }: PDFUploaderProps) {
                 if (result.success) {
                     setUploadedFiles((prev) => [...prev, file.name]);
                     setUploadProgress(`✓ ${file.name} — ${result.chunksCreated} chunks indexed`);
+                    toast.success(`${file.name} uploaded successfully!`);
                     onUploadComplete?.(file.name, {
                         chunks: result.chunksCreated,
                         vectors: result.vectorsUpserted,
                     });
                 } else {
                     setUploadProgress(`✗ ${file.name} — ${result.message}`);
+                    toast.error(`Failed to upload ${file.name}`);
                 }
             } catch (error) {
                 setUploadProgress(`✗ ${file.name} — Upload failed`);
                 console.error("Upload error:", error);
+                toast.error(`Upload failed: ${file.name}`);
             }
         }
 
@@ -112,21 +119,21 @@ export function PDFUploader({ sessionId, onUploadComplete }: PDFUploaderProps) {
 
     return (
         <Card
-            className={`relative overflow-hidden border-2 border-dashed p-8 transition-all duration-300 ${isDragging
-                ? "border-primary bg-primary/5 scale-[1.02]"
-                : "border-zinc-700 hover:border-zinc-500"
+            className={`relative overflow-hidden border-2 border-dashed p-8 transition-all duration-300 bg-white dark:bg-transparent ${isDragging
+                ? "border-violet-500 bg-violet-50 dark:bg-violet-500/5 scale-[1.02]"
+                : "border-zinc-300 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500"
                 }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
         >
             {/* Gradient background effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-violet-500/10 via-transparent to-cyan-500/10 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 dark:from-violet-500/10 via-transparent to-cyan-500/5 dark:to-cyan-500/10 pointer-events-none" />
 
             <div className="relative text-center space-y-4">
-                <div className="mx-auto w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center">
+                <div className="mx-auto w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
                     <svg
-                        className="w-8 h-8 text-zinc-400"
+                        className="w-8 h-8 text-zinc-500 dark:text-zinc-400"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -141,10 +148,10 @@ export function PDFUploader({ sessionId, onUploadComplete }: PDFUploaderProps) {
                 </div>
 
                 <div>
-                    <h3 className="text-lg font-semibold text-white">
+                    <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                         {isUploading ? "Processing..." : "Upload Documents"}
                     </h3>
-                    <p className="text-sm text-zinc-400 mt-1">
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
                         Drag & drop PDFs or click to browse
                     </p>
                 </div>
@@ -170,17 +177,17 @@ export function PDFUploader({ sessionId, onUploadComplete }: PDFUploaderProps) {
                 </label>
 
                 {uploadProgress && (
-                    <p className="text-sm text-zinc-300 animate-pulse">{uploadProgress}</p>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-300 animate-pulse">{uploadProgress}</p>
                 )}
 
                 {uploadedFiles.length > 0 && (
                     <div className="flex flex-wrap gap-2 justify-center mt-4">
                         {uploadedFiles.map((filename, idx) => (
-                            <Badge key={idx} variant="secondary" className="group flex items-center gap-1.5 px-3 py-1 bg-zinc-800 text-zinc-300 border-zinc-700 hover:border-zinc-500 transition-colors">
+                            <Badge key={idx} variant="secondary" className="group flex items-center gap-1.5 px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-500 transition-colors">
                                 📄 {filename}
                                 <button
                                     onClick={() => deleteFile(filename)}
-                                    className="ml-1 text-zinc-500 hover:text-red-400 transition-colors"
+                                    className="ml-1 text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                                     title="Delete document"
                                 >
                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

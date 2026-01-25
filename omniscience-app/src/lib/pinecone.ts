@@ -100,3 +100,22 @@ export async function deleteVectors(
         await index.deleteMany(filter);
     }
 }
+
+/**
+ * Query vectors by namespace to list all documents
+ * Uses a dummy query to retrieve documents with metadata
+ */
+export async function queryVectorsByMetadata(namespace: string) {
+    const index = getIndex();
+
+    // Create a dummy vector for listing (768 dimensions for text-embedding-004)
+    const dummyVector = new Array(768).fill(0);
+
+    // Query with high topK to get all documents
+    return index.namespace(namespace).query({
+        vector: dummyVector,
+        topK: 10000,
+        includeMetadata: true,
+    });
+}
+

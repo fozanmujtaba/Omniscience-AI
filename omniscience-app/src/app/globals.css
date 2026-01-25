@@ -142,16 +142,54 @@
   background: oklch(1 0 0 / 15%);
 }
 
-.glass {
+/* Light mode scrollbar */
+:root .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: oklch(0 0 0 / 10%);
+}
+
+:root .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: oklch(0 0 0 / 20%);
+}
+
+/* Dark mode glass effect */
+.dark .glass {
   background: rgba(24, 24, 27, 0.4);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.glass-violet {
+/* Light mode glass effect */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.dark .glass-violet {
   background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(124, 58, 237, 0.05));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.glass-violet {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(124, 58, 237, 0.02));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+}
+
+/* Toast CSS variables for theme support */
+:root {
+  --toast-bg: #ffffff;
+  --toast-color: #18181b;
+  --toast-border: #e4e4e7;
+}
+
+.dark {
+  --toast-bg: #18181b;
+  --toast-color: #fafafa;
+  --toast-border: #27272a;
 }
