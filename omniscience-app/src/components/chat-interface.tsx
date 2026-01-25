@@ -272,7 +272,7 @@ export function ChatInterface({ sessionId, onFirstMessage }: ChatInterfaceProps)
 
     return (
         <>
-            <Card className="flex flex-col h-[650px] bg-white dark:bg-zinc-900/50 backdrop-blur border-zinc-200 dark:border-zinc-800 shadow-lg dark:shadow-none">
+            <Card className="flex flex-col h-[calc(100vh-200px)] min-h-[500px] max-h-[800px] bg-white dark:bg-zinc-900/50 backdrop-blur border-zinc-200 dark:border-zinc-800 shadow-lg dark:shadow-none">
                 {/* Header */}
                 <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
                     <div>
