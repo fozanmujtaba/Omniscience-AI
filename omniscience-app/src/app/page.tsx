@@ -111,7 +111,7 @@ export default function Home() {
             <div className="flex items-center gap-6">
               <div className="text-right">
                 <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Model</p>
-                <p className="text-sm text-zinc-700 dark:text-zinc-300">Llama 3.3 70B <span className="text-zinc-500">(Groq)</span></p>
+                <p className="text-sm text-zinc-700 dark:text-zinc-300">GPT-OSS 120B <span className="text-zinc-500">(Groq)</span></p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Storage</p>

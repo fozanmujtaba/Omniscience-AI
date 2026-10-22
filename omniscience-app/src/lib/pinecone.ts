@@ -108,7 +108,7 @@ export async function deleteVectors(
 export async function queryVectorsByMetadata(namespace: string) {
     const index = getIndex();
 
-    // Create a dummy vector for listing (768 dimensions for text-embedding-004)
+    // Create a dummy vector for listing (768 dimensions, matching the embedding output size)
     const dummyVector = new Array(768).fill(0);
 
     // Query with high topK to get all documents

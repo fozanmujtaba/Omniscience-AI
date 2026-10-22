@@ -1,11 +1,13 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, type EmbedContentRequest } from "@google/generative-ai";
 import type { TextChunk, EmbeddingResult } from "@/types";
 
 // Initialize Gemini client
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
 
-// Using text-embedding-004 for high-dimensional semantic accuracy
-const EMBEDDING_MODEL = "text-embedding-004";
+// gemini-embedding-001 replaced text-embedding-004, which Google retired.
+// Its native size is 3072; truncating to 768 keeps the existing Pinecone index usable.
+const EMBEDDING_MODEL = "gemini-embedding-001";
+const EMBEDDING_DIMENSIONS = 768;
 
 // Batch size for embedding requests
 const BATCH_SIZE = 100;
@@ -15,7 +17,13 @@ const BATCH_SIZE = 100;
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
     const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
-    const result = await model.embedContent(text);
+    // The SDK's EmbedContentRequest type predates outputDimensionality, but it
+    // forwards the request body unchanged, so the field reaches the API.
+    const request = {
+        content: { role: "user", parts: [{ text }] },
+        outputDimensionality: EMBEDDING_DIMENSIONS,
+    } as EmbedContentRequest;
+    const result = await model.embedContent(request);
     return result.embedding.values;
 }
 

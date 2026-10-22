@@ -6,17 +6,16 @@ const groq = new Groq({
 });
 
 // Available Groq models (sorted by capability)
+// Groq retired the Llama 3.x and Mixtral models; gpt-oss is its recommended replacement.
 export const GROQ_MODELS = {
     // Best quality - recommended for RAG
-    LLAMA_70B: "llama-3.3-70b-versatile",
+    GPT_OSS_120B: "openai/gpt-oss-120b",
     // Faster, still great quality
-    LLAMA_8B: "llama-3.1-8b-instant",
-    // Good alternative
-    MIXTRAL: "mixtral-8x7b-32768",
+    GPT_OSS_20B: "openai/gpt-oss-20b",
 } as const;
 
 // Default model for chat
-export const DEFAULT_MODEL = GROQ_MODELS.LLAMA_70B;
+export const DEFAULT_MODEL = GROQ_MODELS.GPT_OSS_120B;
 
 export interface GroqChatMessage {
     role: "system" | "user" | "assistant";

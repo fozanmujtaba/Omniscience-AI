@@ -11,7 +11,7 @@ import type { IngestResponse } from "@/types";
  * Ingests a PDF file into the vector database:
  * 1. Parse PDF and extract text
  * 2. Split text into semantic chunks (1000 chars, 200 overlap)
- * 3. Generate embeddings using Google text-embedding-004
+ * 3. Generate embeddings using Google gemini-embedding-001 (768 dims)
  * 4. Upsert vectors to Pinecone with metadata
  */
 export async function POST(request: NextRequest) {
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         console.log(`[Ingest] Created ${chunks.length} chunks`);
 
         // Step 3: Generate embeddings
-        console.log(`[Ingest] Generating embeddings with text-embedding-004...`);
+        console.log(`[Ingest] Generating embeddings with gemini-embedding-001...`);
         const embeddings = await generateEmbeddings(chunks);
         console.log(`[Ingest] Generated ${embeddings.length} embeddings`);
 
